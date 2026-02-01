@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calcolatore RPE</title>
+
+  <!-- Tailwind CDN (facile e veloce) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Piccoli dettagli estetici */
+    .card-glow { box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+    .btn-tile { transition: transform .06s ease, filter .12s ease; }
+    .btn-tile:active { transform: translateY(1px); filter: brightness(1.05); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <main class="min-h-screen flex items-center justify-center p-4">
+    <section class="w-full max-w-xl">
+      <header class="text-center mb-6">
+        <h1 class="text-3xl font-semibold tracking-tight">Calcolatore RPE</h1>
+        <p class="text-slate-300 mt-2">Inserisci 1RM, seleziona RPE e ripetizioni: ti stimo il carico.</p>
+      </header>
+
+      <div class="card-glow rounded-2xl border border-slate-700/60 bg-slate-900/40 backdrop-blur p-5">
+        <!-- 1RM input -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-slate-200 mb-2">Massimale (1RM) in kg</label>
+          <div class="flex gap-2">
+            <input id="oneRm"
+                   inputmode="decimal"
+                   placeholder="Es: 100"
+                   class="w-full rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-lg outline-none focus:ring-2 focus:ring-amber-400/70"
+                   />
+            <div class="flex items-center px-3 rounded-xl border border-slate-700 bg-slate-950/30 text-slate-300">
+              kg
+            </div>
+          </div>
+          <p id="oneRmHint" class="text-xs text-slate-400 mt-2"></p>
+        </div>
+
+        <!-- RPE -->
+        <div class="mb-5">
+          <div class="flex items-end justify-between mb-2">
+            <label class="block text-sm font-medium text-slate-200">RPE target</label>
+            <span id="rpeLabel" class="text-sm text-slate-300">Seleziona</span>
+          </div>
+          <div id="rpeGrid" class="grid grid-cols-4 gap-2"></div>
+          <p class="text-xs text-slate-400 mt-2">
+            (RPE 10 = a cedimento / 0 RIR, RPE 9 = ~1 RIR, ecc.)
+          </p>
+        </div>
+
+        <!-- Reps -->
+        <div class="mb-5">
+          <div class="flex items-end justify-between mb-2">
+            <label class="block text-sm font-medium text-slate-200">Ripetizioni</label>
+            <span id="repsLabel" class="text-sm text-slate-300">Seleziona</span>
+          </div>
+          <div id="repsGrid" class="grid grid-cols-5 gap-2"></div>
+        </div>
+
+        <!-- Rounding -->
+        <div class="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-slate-700 bg-slate-950/25 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-slate-200">Arrotondamento</span>
+              <select id="rounding"
+                      class="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm outline-none">
+                <option value="1">1 kg</option>
+                <option value="0.5">0,5 kg</option>
+                <option value="2.5">2,5 kg</option>
+              </select>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Utile se usi dischi piccoli o salti da 2,5 kg.</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700 bg-slate-950/25 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-slate-200">Metodo</span>
+              <span class="text-xs text-slate-400">stima tipo Epley + RIR</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              Se vuoi una tabella RPE “ufficiale”, dimmelo e la sostituiamo.
+            </p>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm text-amber-100/90">Carico stimato</p>
+              <p id="result" class="text-3xl font-semibold text-amber-200 mt-1">—</p>
+              <p id="details" class="text-xs text-amber-100/70 mt-2"></p>
+            </div>
+            <button id="resetBtn"
+                    class="rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm text-slate-200 hover:bg-slate-950/60">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- CTA (opzionale) -->
+        <div class="mt-5 text-center">
+          <p class="text-sm text-slate-300">Vuoi che ti aiuti ad applicarlo al tuo programma?</p>
+          <p class="text-sm text-slate-200 font-medium mt-1">Contattami in DM o vieni a trovarmi in sala.</p>
+        </div>
+      </div>
+
+      <footer class="text-center text-xs text-slate-500 mt-6">
+        Suggerimento: verifica sempre con tecnica, giornata e sensazioni. Questo è uno strumento di autoregolazione.
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    // --- UI data ---
+    const RPE_VALUES = [10, 9.5, 9, 8.5, 8, 7.5, 7, 6.5];
+    const REPS_VALUES = [1,2,3,4,5,6,7,8,9,10];
+
+    // --- State ---
+    let selectedRpe = null;
+    let selectedReps = null;
+
+    // --- Elements ---
+    const oneRmEl = document.getElementById('oneRm');
+    const oneRmHintEl = document.getElementById('oneRmHint');
+    const rpeGrid = document.getElementById('rpeGrid');
+    const repsGrid = document.getElementById('repsGrid');
+    const rpeLabel = document.getElementById('rpeLabel');
+    const repsLabel = document.getElementById('repsLabel');
+    const roundingEl = document.getElementById('rounding');
+    const resultEl = document.getElementById('result');
+    const detailsEl = document.getElementById('details');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function createTileButton(text, onClick) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = [
+        'btn-tile rounded-xl border border-slate-700 bg-slate-950/35',
+        'px-3 py-3 text-sm text-slate-200 hover:bg-slate-950/55',
+        'focus:outline-none focus:ring-2 focus:ring-amber-400/60'
+      ].join(' ');
+      btn.textContent = text;
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    function setActive(btn, active) {
+      if (active) {
+        btn.classList.add('border-amber-400/70', 'bg-amber-400/15', 'text-amber-200');
+        btn.classList.remove('border-slate-700', 'bg-slate-950/35', 'text-slate-200');
+      } else {
+        btn.classList.remove('border-amber-400/70', 'bg-amber-400/15', 'text-amber-200');
+        btn.classList.add('border-slate-700', 'bg-slate-950/35', 'text-slate-200');
+      }
+    }
+
+    // Build RPE grid
+    const rpeButtons = new Map();
+    RPE_VALUES.forEach(v => {
+      const btn = createTileButton(String(v), () => {
+        selectedRpe = v;
+        rpeLabel.textContent = `RPE ${v}`;
+        rpeButtons.forEach((b, key) => setActive(b, key === v));
+        compute();
+      });
+      rpeButtons.set(v, btn);
+      rpeGrid.appendChild(btn);
+    });
+
+    // Build Reps grid
+    const repsButtons = new Map();
+    REPS_VALUES.forEach(v => {
+      const btn = createTileButton(String(v), () => {
+        selectedReps = v;
+        repsLabel.textContent = `${v} rep`;
+        repsButtons.forEach((b, key) => setActive(b, key === v));
+        compute();
+      });
+      repsButtons.set(v, btn);
+      repsGrid.appendChild(btn);
+    });
+
+    function parseNumber(itStr) {
+      // accetta "100", "100.5" o "100,5"
+      if (!itStr) return NaN;
+      const normalized = itStr.replace(',', '.').trim();
+      return Number(normalized);
+    }
+
+    function roundToStep(value, step) {
+      return Math.round(value / step) * step;
+    }
+
+    function compute() {
+      const oneRm = parseNumber(oneRmEl.value);
+      const step = parseNumber(roundingEl.value);
+
+      // Hint 1RM
+      if (Number.isFinite(oneRm) && oneRm > 0) {
+        oneRmHintEl.textContent = `Ok: 1RM = ${oneRm} kg`;
+      } else {
+        oneRmHintEl.textContent = '';
+      }
+
+      if (!Number.isFinite(oneRm) || oneRm <= 0 || selectedRpe == null || selectedReps == null) {
+        resultEl.textContent = '—';
+        detailsEl.textContent = 'Inserisci 1RM e seleziona RPE + ripetizioni.';
+        return;
+      }
+
+      // RIR from RPE
+      const rir = 10 - selectedRpe;               // es: RPE 9 => RIR 1
+      const repsEff = selectedReps + rir;         // reps "equivalenti a cedimento"
+
+      // Epley-like estimate: 1RM = W * (1 + reps/30)  ->  W = 1RM / (1 + reps/30)
+      const rawWeight = oneRm / (1 + (repsEff / 30));
+      const rounded = roundToStep(rawWeight, step);
+
+      resultEl.textContent = `${rounded.toFixed(step < 1 ? 1 : 0)} kg`;
+      detailsEl.textContent = `RPE ${selectedRpe} (≈${rir} RIR), ${selectedReps} rep → reps_eff ${repsEff.toFixed(1)} | stima: ${rawWeight.toFixed(2)} kg`;
+    }
+
+    oneRmEl.addEventListener('input', compute);
+    roundingEl.addEventListener('change', compute);
+
+    resetBtn.addEventListener('click', () => {
+      oneRmEl.value = '';
+      selectedRpe = null;
+      selectedReps = null;
+      rpeLabel.textContent = 'Seleziona';
+      repsLabel.textContent = 'Seleziona';
+      rpeButtons.forEach(b => setActive(b, false));
+      repsButtons.forEach(b => setActive(b, false));
+      compute();
+    });
+
+    // initial
+    compute();
+  </script>
+</body>
+</html>
